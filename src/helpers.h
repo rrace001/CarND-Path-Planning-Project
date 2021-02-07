@@ -9,6 +9,11 @@
 using std::string;
 using std::vector;
 
+double CalculateSpeed(double vx, double vy){
+  return sqrt(vx*vx+vy*vy);
+}
+
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 //   else the empty string "" will be returned.

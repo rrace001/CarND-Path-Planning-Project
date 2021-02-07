@@ -16,7 +16,10 @@ using std::vector;
 //11111111111111111111111111111111111111111111111111111111111
 int lane = 1; // car projected lane
 double ref_vel = 0; //mph - used to set velocity of vehicle
-double max_vel = 49.5; //mph - 
+double max_vel = 49.5; //mph - max velocity of vechicle
+double target_vel = max_vel; //mph - target velocity of vehicle - used when following another vehicle
+double ch_vel = 0.5; // mph - change in velocity per timestep speeding up or slowing down
+int tail_dist = 30; // meters - distance to keep from lead vehicle if slower than max_vel
 //11111111111111111111111111111111111111111111111111111111111
 int main() {
   uWS::Hub h;
@@ -109,32 +112,35 @@ int main() {
           if(prev_size > 0){
             car_s = end_path_s;
           }
-          bool too_close = false;
+
 
           for(int i = 0; i < sensor_fusion.size(); i++){
             //car is in my lane
             float d = sensor_fusion[i][6];
-            if(d <(2+4*lane+2) && d > (2+4*lane-2)){ // check if anywhere in lane (4 wide)
+            if(d <(2+4*lane+2) && d > (2+4*lane-2)){ // check if anywhere in same lane (4m wide)
               double vx = sensor_fusion[i][3];
               double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx*vx+vy*vy);
+              double check_speed = CalculateSpeed(vx,vy);
               double check_car_s = sensor_fusion[i][5];
 
               check_car_s+=(double)prev_size*0.02*check_speed;//predict s of car in lane one time step (0.02)
-              if((check_car_s > car_s)&&((check_car_s-car_s)<30)){
-                  too_close = true;
+              if((check_car_s > car_s)&&((check_car_s-car_s)<tail_dist)){
+                target_vel = check_speed;
                   // +++++++++++++++++++++++++++++++++++++
+                  /*
                   if(lane>0){
                     lane = 0;
                   }
-                  
+                  */
+              } else {
+                target_vel = max_vel;
               }
             }
           }
-          if(too_close){
-            ref_vel -= 0.244;
-          } else if (ref_vel < max_vel){
-            ref_vel += 0.244;
+          if(ref_vel > target_vel){
+            ref_vel -= ch_vel/2;
+          } else if (ref_vel < target_vel){
+            ref_vel += ch_vel;
           }
           // wideley spaced waypoints for spline to interpolate
           vector<double> ptsx;
