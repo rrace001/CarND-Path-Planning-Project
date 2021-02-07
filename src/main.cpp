@@ -8,6 +8,7 @@
 #include "helpers.h"
 #include "json.hpp"
 #include "spline.h"
+#include "vehicle.h"
 
 // for convenience
 using nlohmann::json;
@@ -20,6 +21,8 @@ double max_vel = 49.5; //mph - max velocity of vechicle
 double target_vel = max_vel; //mph - target velocity of vehicle - used when following another vehicle
 double ch_vel = 0.5; // mph - change in velocity per timestep speeding up or slowing down
 int tail_dist = 30; // meters - distance to keep from lead vehicle if slower than max_vel
+std::map<int, Vehicle> vehicles; // vehicles detected by sensor fusion
+Vehicle ego_vehicle(); //
 //11111111111111111111111111111111111111111111111111111111111
 int main() {
   uWS::Hub h;
@@ -113,8 +116,10 @@ int main() {
             car_s = end_path_s;
           }
 
-
+          
           for(int i = 0; i < sensor_fusion.size(); i++){
+
+
             //car is in my lane
             float d = sensor_fusion[i][6];
             if(d <(2+4*lane+2) && d > (2+4*lane-2)){ // check if anywhere in same lane (4m wide)
