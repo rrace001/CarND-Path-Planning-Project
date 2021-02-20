@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "cost.h"
+
 
 using std::string;
 using std::vector;

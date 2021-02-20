@@ -17,10 +17,10 @@ using nlohmann::json;
 using std::string;
 using std::vector;
 //11111111111111111111111111111111111111111111111111111111111
-float dt = 0; // keeps track of time between recieving data from simulator
+float dt = 0; // keeps track of time between receiving data from simulator
 int num_path_pts = 50; // number of points in path sent to simulator
 int lane = 1; // car projected lane
-double max_vel = (49.5)*(0.447); //(MPH)*(0.447 mph to m/s) max velocity of vechicle
+double max_vel = (49.5)*(0.447); //(MPH)*(0.447 mph to m/s) max velocity of vehicle
 double max_acc = 10; //m/s/s
 double ref_vel = 0; //mph - used to set velocity of vehicle
 double target_vel = max_vel; //mph - target velocity of vehicle - used when following another vehicle
@@ -122,7 +122,7 @@ int main() {
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
           int prev_size = previous_path_x.size();    
-
+          dt = (num_path_pts - prev_size)*0.02;
           for(int i = 0; i < sensor_fusion.size(); i++){ 
             int v_id = sensor_fusion[i][0];
             double vx = sensor_fusion[i][3];
