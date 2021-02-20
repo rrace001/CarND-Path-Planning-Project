@@ -9,10 +9,25 @@
 using std::string;
 using std::vector;
 
-double CalculateSpeed(double vx, double vy){
+double ConvertSpeed(double vx, double vy){
   return sqrt(vx*vx+vy*vy);
 }
 
+double CalclateAcceleration(double v2, double v1, double dt){
+  return (v2 - v1)/dt;
+}
+
+int DetermineLane(float d){
+  int l = 0;
+    if(d <= 4){
+      l = 0;
+    } else if (d > 4 && d <= 8){
+      l = 1;
+    } else {
+      l = 2;
+    }
+  return l;
+}
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
