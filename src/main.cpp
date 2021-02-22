@@ -2,6 +2,7 @@
 todo : * check all lanes for possible change regardless of current lane
        * try to remove left lane bias
        * make a predictions vector for vehicles to check when changing lanes - cars flying by when ego is slow
+       * add in something to buffer the distance between ego and vehicle ahead
 
 
 */
