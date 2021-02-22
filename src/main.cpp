@@ -1,3 +1,11 @@
+/*
+todo : * check all lanes for possible change regardless of current lane
+       * try to remove left lane bias
+       * make a predictions vector for vehicles to check when changing lanes - cars flying by when ego is slow
+
+
+*/
+
 #include <uWS/uWS.h>
 #include <fstream>
 #include <iostream>
@@ -168,121 +176,111 @@ int main() {
           } // end delete all vehicles not present in current update
 // ........................................................ 
 
-          int car_lane = DetermineLane(car_d);
+          if(car_d > lane*4 +1 && car_d < lane*4 + 3){ // make sure last lane change was executed ...mostly
 
-          vector<std::map<int, float>>  close_in_lanes(3);
-          for(auto v: vehicles){
-            for (int i=0; i < 3; i++){
-              int check_dist = 45;
-              if (i == car_lane){
-                check_dist = 30;
-              }
-              if((v.second.distance_to_ego > 0) && (v.second.distance_to_ego < check_dist)){
-                close_in_lanes[v.second.lane].insert(std::pair<int, float>(v.first, v.second.distance_to_ego));
-              }
-            }            
-          }
-          vector<int> closest_in_lanes(3, -1);
-          for(int i = 0; i < 3; i++){
-            if(close_in_lanes[i].size()){ 
-              int closest_dist = pow(2,16);
-              for(auto v: close_in_lanes[i]){
-                if(v.second < closest_dist){
-                  closest_in_lanes[i] = v.first;
-                  closest_dist = v.second;
+            double change_lane_buffer = 12.0; // try to keep lane change safe by putting a buffer around ego
+            vector<std::map<int, float>>  close_in_lanes(3);
+            for(auto v: vehicles){
+              for (int i=0; i < 3; i++){
+                int check_dist = 45;
+                if (i == lane){
+                  check_dist = 30;
+                }
+                if((v.second.distance_to_ego > 0 ) && (v.second.distance_to_ego < check_dist)){
+                  close_in_lanes[v.second.lane].insert(std::pair<int, float>(v.first, v.second.distance_to_ego));
+                }
+              }            
+            }
+            vector<int> closest_in_lanes(3, -1); 
+            for(int i = 0; i < 3; i++){
+              if(close_in_lanes[i].size()){ 
+                int closest_dist = pow(2,16);
+                for(auto v: close_in_lanes[i]){
+                  if(v.second < closest_dist){
+                    closest_in_lanes[i] = v.first;
+                    closest_dist = v.second;
+                  }
                 }
               }
             }
-          }
-
-          int cl_id = closest_in_lanes[car_lane];
-          if(cl_id > -1){ // car is in front of ego - check if should change lane
-             switch(car_lane){ // todo - consolidate repeating code
-              case 0:
-                if(closest_in_lanes[1] < 0){ // no car in middle lane - change lane to middle and target max velocity
-                  lane = 1; 
-                  target_vel = max_vel;                                   
-                } else {  // car also in middle lane - follow fastest
-                  if( vehicles[closest_in_lanes[1]].v > vehicles[closest_in_lanes[0]].v){
-                    lane = 1;
-                    target_vel = vehicles[closest_in_lanes[1]].v;
-                  } else{
-                    lane = 0;
-                    target_vel = vehicles[closest_in_lanes[0]].v;
-                  }
-                }
-                break;
-
-              case 1:
-                if(closest_in_lanes[0] < 0){ // no car in left lane - change lane to left and target max velocity
-                lane = 0;
-                target_vel = max_vel; 
-                } else if (closest_in_lanes[2] < 0){ // no car in right lane - change lane to right and target max velocity
-                lane = 2;
-                target_vel = max_vel;                  
-                } else { // cars in all lanes - follow fastest
-                  int fastest_lane = 0;
-                  float fastest_velocity = 0;
-                  for(int i = 0; i < 3; i++){
-                    if(vehicles[closest_in_lanes[i]].v > fastest_velocity){
-                      fastest_velocity = vehicles[closest_in_lanes[i]].v;
-                      fastest_lane = i;
+            // check if lane change needed and change if safe - also target speed
+            int cl_id = closest_in_lanes[lane];
+            if(cl_id > -1){ // car is in front of ego - check if should change lane
+              switch(lane){ // 
+                case 0:
+                  if(closest_in_lanes[1] < 0){ // no car in middle lane - change lane to middle and target max velocity 
+                    lane = 1; 
+                    target_vel = max_vel;  
+                  } else {  // car also in middle lane - follow fastest
+                    if( vehicles[closest_in_lanes[1]].v > vehicles[closest_in_lanes[0]].v){ // middle lane faster
+                      if (vehicles[closest_in_lanes[0]].distance_to_ego > change_lane_buffer &&
+                          vehicles[closest_in_lanes[1]].distance_to_ego > change_lane_buffer  ){ //check safe to switch lane
+                        lane = 1;
+                        target_vel = vehicles[closest_in_lanes[1]].v;
+                      } else { //not safe to switch - stay in a lane and target velocity of vehicle ahead
+                        target_vel = vehicles[closest_in_lanes[0]].v;
+                      }
+                    } else{ // current lane is faster - target vehicle ahead velocity
+                      target_vel = vehicles[closest_in_lanes[0]].v;
                     }
                   }
-                  lane = fastest_lane;
-                  target_vel = vehicles[closest_in_lanes[fastest_lane]].v;
-                }
-                break;
+                  break;
 
-              case 2:
-                if(closest_in_lanes[1] < 0){ // no car in middle lane - change lane to middle and target max velocity
-                  lane = 1; 
-                  target_vel = max_vel;                                   
-                } else {  // car also in middle lane - follow fastest
-                  if( vehicles[closest_in_lanes[1]].v > vehicles[closest_in_lanes[2]].v){
-                    lane = 1;
-                    target_vel = vehicles[closest_in_lanes[1]].v;
-                  } else{
+                case 1:
+                  if(closest_in_lanes[0] < 0){ // no car in left lane - change lane to left and target max velocity
+                    lane = 0;
+                    target_vel = max_vel;
+                  } else if (closest_in_lanes[2] < 0){ // no car in right lane - change lane to right and target max velocity
                     lane = 2;
-                    target_vel = vehicles[closest_in_lanes[2]].v;
+                    target_vel = max_vel;         
+                  } else { // cars in all lanes - follow fastest
+                    int fastest_lane = 0;
+                    float fastest_velocity = 0;
+                    for(int i = 0; i < 3; i++){
+                      if(vehicles[closest_in_lanes[i]].v > fastest_velocity){
+                        fastest_velocity = vehicles[closest_in_lanes[i]].v;
+                        fastest_lane = i;
+                      }
+                    }
+                    if(fastest_lane != lane){
+                      if (vehicles[closest_in_lanes[1]].distance_to_ego > change_lane_buffer &&
+                          vehicles[closest_in_lanes[fastest_lane]].distance_to_ego > change_lane_buffer){ //check safe to switch lane
+                        lane = fastest_lane;
+                        target_vel = vehicles[closest_in_lanes[fastest_lane]].v;
+                      } else { //not safe to switch - stay in lane and target velocity of vehicle ahead
+                        target_vel = vehicles[closest_in_lanes[1]].v;
+                      }
+                    } else { //fastest lane is middle lane
+                      target_vel = vehicles[closest_in_lanes[1]].v;
+                    }
                   }
-                }
-                break;
+                  break;
+
+                case 2:
+                  if(closest_in_lanes[1] < 0){ // no car in middle lane - change lane to middle and target max velocity 
+                    lane = 1; 
+                    target_vel = max_vel;  
+                  } else {  // car also in middle lane - follow fastest
+                    if( vehicles[closest_in_lanes[1]].v > vehicles[closest_in_lanes[2]].v){ // middle lane faster
+                      if (vehicles[closest_in_lanes[2]].distance_to_ego > change_lane_buffer &&
+                          vehicles[closest_in_lanes[1]].distance_to_ego > change_lane_buffer){ //check safe to switch lane
+                        lane = 1;
+                        target_vel = vehicles[closest_in_lanes[1]].v;
+                      } else { //not safe to switch - stay in lane and target velocity of vehicle ahead
+                        target_vel = vehicles[closest_in_lanes[2]].v;
+                      }
+                    } else{ // current lane is fastest - target vehicle ahead velocity
+                      target_vel = vehicles[closest_in_lanes[2]].v;
+                    }
+                  }
+                  break;
+              }
+            } else { // car is not in front of ego - target max velocity
+              target_vel = max_vel;
             }
-          } else { // car is not in front of ego - target max velocity
-            target_vel = max_vel;
           }
 // ........................................................   
-/* ////////////////////////////////////////////////
-          vector<float> same_lane_dist(sensor_fusion.size(), 9999999.9);
-          int found_close = 0;
-          for(int i = 0; i < sensor_fusion.size(); i++){ // start go through sensed vehicles
-            float d = sensor_fusion[i][6];
-            if (lane == DetermineLane(d)){
-              double check_car_s = sensor_fusion[i][5];
-              if((check_car_s > car_s)&&((check_car_s-car_s)<30)){
-                same_lane_dist[i] = check_car_s-car_s;
-                found_close = 1;  
-              }
-            }
-          } // end go through sensed vehicles        
-          
-          if(found_close){
-              std::vector<float>::iterator closest = std::min_element(same_lane_dist.begin(), same_lane_dist.end());
-              int closest_id = std::distance(same_lane_dist.begin(), closest);
-              //std::cout << "closest id : " << closest_id << " closest_s: " << sensor_fusion[closest_id][5] << " car_s: " <<  car_s << std::endl;
-              double vx = sensor_fusion[closest_id][3];
-              double vy = sensor_fusion[closest_id][4];
-              double check_speed = ConvertSpeed(vx,vy);
-              if(check_speed < max_vel ){
-                target_vel = check_speed;
-              } else {
-                target_vel = max_vel;
-              }
-          } else {
-            target_vel = max_vel;
-          }
-*/////////////////////////////////////////////////
+
           if(target_vel > ref_vel + 0.5*max_acc*0.02){
             ref_vel = ref_vel + max_acc*0.02;
           } else if (target_vel < ref_vel - 0.5*max_acc*0.02) {
@@ -294,7 +292,7 @@ int main() {
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // ------------------------------------------------------------
-
+          // path planner 
           if(prev_size > 0){
             car_s = end_path_s;
           }
